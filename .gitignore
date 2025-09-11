@@ -1,0 +1,52 @@
+# React Native
+mobile/GetTrainApp/node_modules/
+mobile/GetTrainApp/.expo/
+mobile/GetTrainApp/dist/
+mobile/GetTrainApp/npm-debug.*
+mobile/GetTrainApp/*.jks
+mobile/GetTrainApp/*.p8
+mobile/GetTrainApp/*.p12
+mobile/GetTrainApp/*.key
+mobile/GetTrainApp/*.mobileprovision
+mobile/GetTrainApp/*.orig.*
+mobile/GetTrainApp/web-build/
+
+# Android build files
+mobile/GetTrainApp/android/build/
+mobile/GetTrainApp/android/app/build/
+mobile/GetTrainApp/android/.gradle/
+mobile/GetTrainApp/android/local.properties
+
+# Keystores (security)
+mobile/GetTrainApp/android/app/*.keystore
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json
+.vscode/*.code-snippets
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# AI Assistants
+.claude/
+.cursor/
+.copilot/
+.aider/
+.continue/
+CLAUDE.md
+cursor.rules
+.cursorrules
