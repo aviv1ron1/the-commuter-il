@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { JourneyResponse, JourneyOption, Destination, Timing, Station } from '../types';
 import { apiService } from '../services/ApiService';
+import { SortBy } from '../services/JourneyPlanner';
 
 interface Props {
   destination?: Destination;
@@ -37,10 +38,11 @@ export const ResultsScreen: React.FC<Props> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [directOnly, setDirectOnly] = useState(true);
+  const [sortBy, setSortBy] = useState<SortBy>('arrival_time');
 
   useEffect(() => {
     fetchJourneyData();
-  }, []);
+  }, []); // Only fetch once on mount
 
   const fetchJourneyData = async () => {
     try {
@@ -91,10 +93,32 @@ export const ResultsScreen: React.FC<Props> = ({
 
   const getFilteredOptions = (): JourneyOption[] => {
     if (!journeyData?.options) return [];
-    if (directOnly) {
-      return journeyData.options.filter(option => option.is_direct);
+
+    // Filter by direct trains if needed
+    let options = directOnly
+      ? journeyData.options.filter(option => option.is_direct)
+      : journeyData.options;
+
+    // Sort client-side based on preference
+    const sortedOptions = [...options];
+    if (sortBy === 'arrival_time') {
+      // Sort by final arrival time
+      sortedOptions.sort((a, b) => {
+        const timeA = new Date(a.final_arrival).getTime();
+        const timeB = new Date(b.final_arrival).getTime();
+        // For trips to office: latest first; for trips home: earliest first
+        return isReturnTrip ? timeA - timeB : timeB - timeA;
+      });
+    } else {
+      // Sort by leave time (latest first - leave as late as possible)
+      sortedOptions.sort((a, b) => {
+        const timeA = new Date(a.leave_time).getTime();
+        const timeB = new Date(b.leave_time).getTime();
+        return timeB - timeA;
+      });
     }
-    return journeyData.options;
+
+    return sortedOptions;
   };
 
   const renderJourneyOption = (option: JourneyOption, index: number) => (
@@ -230,14 +254,43 @@ export const ResultsScreen: React.FC<Props> = ({
       </View>
 
       <View style={styles.filterContainer}>
-        <View style={styles.filterToggle}>
-          <Text style={styles.filterLabel}>Direct trains only</Text>
-          <Switch
-            value={directOnly}
-            onValueChange={setDirectOnly}
-            trackColor={{ false: '#e0e0e0', true: '#007AFF' }}
-            thumbColor='white'
-          />
+        <View style={styles.filterRow}>
+          <View style={styles.filterToggle}>
+            <Text style={styles.filterLabel}>Direct only</Text>
+            <Switch
+              value={directOnly}
+              onValueChange={setDirectOnly}
+              trackColor={{ false: '#e0e0e0', true: '#007AFF' }}
+              thumbColor='white'
+            />
+          </View>
+
+          <View style={styles.sortButtons}>
+            <TouchableOpacity
+              style={[
+                styles.sortButton,
+                sortBy === 'leave_time' && styles.sortButtonActive
+              ]}
+              onPress={() => setSortBy('leave_time')}
+            >
+              <Text style={[
+                styles.sortButtonText,
+                sortBy === 'leave_time' && styles.sortButtonTextActive
+              ]}>🏠</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.sortButton,
+                sortBy === 'arrival_time' && styles.sortButtonActive
+              ]}
+              onPress={() => setSortBy('arrival_time')}
+            >
+              <Text style={[
+                styles.sortButtonText,
+                sortBy === 'arrival_time' && styles.sortButtonTextActive
+              ]}>🏁</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -322,24 +375,53 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     backgroundColor: 'white',
-    borderRadius: 12,
-    marginBottom: 20,
-    padding: 15,
+    borderRadius: 8,
+    marginBottom: 15,
+    padding: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  filterToggle: {
+  filterRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  filterToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   filterLabel: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#333',
     fontWeight: '500',
+  },
+  sortButtons: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  sortButton: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 6,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  sortButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  sortButtonText: {
+    fontSize: 18,
+  },
+  sortButtonTextActive: {
+    fontSize: 18,
   },
   scrollContainer: {
     flex: 1,

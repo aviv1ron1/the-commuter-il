@@ -1,5 +1,5 @@
 import { Location, LocationInfo, JourneyResponse, Destination, Timing, Station } from '../types';
-import { JourneyPlanner, JourneyOption } from './JourneyPlanner';
+import { JourneyPlanner, JourneyOption, SortBy } from './JourneyPlanner';
 import { 
   HOME, 
   TLV_OFFICE, 
@@ -65,16 +65,19 @@ class ApiService {
     destination: Destination,
     timing: Timing,
     arrivalTime?: Date,
-    currentLocation?: Location
+    currentLocation?: Location,
+    sortBy: SortBy = 'arrival_time'
   ): Promise<JourneyResponse> {
     try {
       let journeyOptions: JourneyOption[];
-      
+
       if (timing === 'now') {
         // Plan forward from current time
         journeyOptions = await this.journeyPlanner.planJourneyFromHomeForward(
           destination,
-          new Date()
+          new Date(),
+          12,
+          sortBy
         );
       } else {
         // Plan backward from arrival time
@@ -83,7 +86,9 @@ class ApiService {
         }
         journeyOptions = await this.journeyPlanner.planJourneyFromHome(
           destination,
-          arrivalTime
+          arrivalTime,
+          3,
+          sortBy
         );
       }
       
@@ -103,7 +108,8 @@ class ApiService {
     fromLocation: Destination,
     parkedStation: Station,
     timing: Timing,
-    departureTime?: Date
+    departureTime?: Date,
+    sortBy: SortBy = 'arrival_time'
   ): Promise<JourneyResponse> {
     try {
       // Convert station name to match our internal naming
@@ -111,15 +117,17 @@ class ApiService {
       if (parkedStation === 'Lehavim') {
         stationName = 'Lehavim-Rahat';
       }
-      
+
       let journeyOptions: JourneyOption[];
-      
+
       if (timing === 'now') {
         // Plan forward from current time
         journeyOptions = await this.journeyPlanner.planJourneyToHome(
           fromLocation,
           stationName,
-          new Date()
+          new Date(),
+          3,
+          sortBy
         );
       } else {
         // Plan forward from departure time
@@ -129,7 +137,9 @@ class ApiService {
         journeyOptions = await this.journeyPlanner.planJourneyToHome(
           fromLocation,
           stationName,
-          departureTime
+          departureTime,
+          3,
+          sortBy
         );
       }
       

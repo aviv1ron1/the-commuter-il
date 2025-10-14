@@ -30,6 +30,8 @@ export interface JourneyOption {
   departure_platform?: string;
 }
 
+export type SortBy = 'leave_time' | 'arrival_time';
+
 export class JourneyPlanner {
   private trainService: TrainService;
 
@@ -41,42 +43,56 @@ export class JourneyPlanner {
   async planJourneyFromHome(
     destination: string,
     arrivalTime: Date,
-    timeWindowHours: number = 3
+    timeWindowHours: number = 3,
+    sortBy: SortBy = 'arrival_time'
   ): Promise<JourneyOption[]> {
     const destinationInfo = destination === 'TLV' ? TLV_OFFICE : HAIFA_OFFICE;
     const targetStation = DESTINATION_STATIONS[`${destination} Office`];
-    
+
     const allOptions: JourneyOption[] = [];
-    
+
     // Check routes from each of the 3 stations
     for (const station of TRAIN_STATIONS) {
       // Get train routes for the time window
+      // Subtract walk time from arrival time to get the required train arrival time
+      const requiredTrainArrival = new Date(
+        arrivalTime.getTime() - destinationInfo.walk_or_transport_minutes * 60000
+      );
+
       const routes = await this.getRoutesInWindow(
         station.name,
         targetStation,
-        arrivalTime,
+        requiredTrainArrival,
         timeWindowHours,
         true // search backwards
       );
-      
+
       // Convert each route to a complete journey option
       for (const route of routes) {
         const option = this.createJourneyOptionFromHome(station, route, destinationInfo);
-        if (option) {
+        // Only include if final arrival is before desired time
+        if (option && option.final_arrival <= arrivalTime) {
           allOptions.push(option);
         }
       }
     }
-    
-    // Sort by arrival time (latest to earliest)
-    allOptions.sort((a, b) => b.final_arrival.getTime() - a.final_arrival.getTime());
+
+    // Sort based on preference
+    if (sortBy === 'arrival_time') {
+      // Latest arrival first (so you can take the latest train)
+      allOptions.sort((a, b) => b.final_arrival.getTime() - a.final_arrival.getTime());
+    } else {
+      // Latest leave time first (so you can leave as late as possible)
+      allOptions.sort((a, b) => b.leave_time.getTime() - a.leave_time.getTime());
+    }
     return allOptions;
   }
 
   async planJourneyFromHomeForward(
     destination: string,
     departureTime: Date,
-    timeWindowHours: number = 12
+    timeWindowHours: number = 12,
+    sortBy: SortBy = 'leave_time'
   ): Promise<JourneyOption[]> {
     const destinationInfo = destination === 'TLV' ? TLV_OFFICE : HAIFA_OFFICE;
     const targetStation = DESTINATION_STATIONS[`${destination} Office`];
@@ -112,8 +128,14 @@ export class JourneyPlanner {
       }
     }
     
-    // Sort by train departure time (latest trains first)
-    allOptions.sort((a, b) => b.train_departure.getTime() - a.train_departure.getTime());
+    // Sort based on preference
+    if (sortBy === 'arrival_time') {
+      // Earliest arrival first
+      allOptions.sort((a, b) => a.final_arrival.getTime() - b.final_arrival.getTime());
+    } else {
+      // Latest leave time first (so you can leave as late as possible)
+      allOptions.sort((a, b) => b.leave_time.getTime() - a.leave_time.getTime());
+    }
     return allOptions.slice(0, 5); // Return only next 5 trains
   }
 
@@ -121,7 +143,8 @@ export class JourneyPlanner {
     fromLocation: string,
     departureStation: string,
     departureTime: Date,
-    timeWindowHours: number = 3
+    timeWindowHours: number = 3,
+    sortBy: SortBy = 'arrival_time'
   ): Promise<JourneyOption[]> {
     // Find the station info
     const stationInfo = TRAIN_STATIONS.find(s => s.name === departureStation);
@@ -157,8 +180,15 @@ export class JourneyPlanner {
         allOptions.push(option);
       }
     }
-    
-    allOptions.sort((a, b) => b.final_arrival.getTime() - a.final_arrival.getTime());
+
+    // Sort based on preference
+    if (sortBy === 'arrival_time') {
+      // Earliest arrival first (get home sooner)
+      allOptions.sort((a, b) => a.final_arrival.getTime() - b.final_arrival.getTime());
+    } else {
+      // Latest leave time first (so you can leave office as late as possible)
+      allOptions.sort((a, b) => b.leave_time.getTime() - a.leave_time.getTime());
+    }
     return allOptions;
   }
 
