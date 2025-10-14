@@ -46,21 +46,28 @@ export class TrainService {
     try {
       const dateStr = departureTime.toISOString().split('T')[0];
       const timeStr = departureTime.toTimeString().slice(0, 5);
-      
-      const params = new URLSearchParams({
+
+      const payload = {
+        methodName: 'searchTrainLuzForDateTime',
         fromStation: fromId.toString(),
         toStation: toId.toString(),
         date: dateStr,
         hour: timeStr,
-        scheduleType: '1',
         systemType: '2',
-        languageId: 'English'
-      });
+        scheduleType: 'ByDeparture'
+      };
 
-      const url = `${this.apiBase}/timetable/searchTrainLuzForDateTime?${params}`;
-      console.log('Requesting rail API:', url);
-      
-      const response = await fetch(url, { headers: this.headers });
+      const url = `${this.apiBase}/timetable/searchTrain`;
+      console.log('Requesting rail API (POST):', url, 'with payload:', payload);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...this.headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
       console.log('Rail API response status:', response.status);
       
       if (!response.ok) {

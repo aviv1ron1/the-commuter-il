@@ -7,6 +7,18 @@ export class LocationService {
   async requestLocationPermission(): Promise<boolean> {
     if (Platform.OS === 'android') {
       try {
+        // First check if permission is already granted
+        const hasPermission = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+        );
+        
+        console.log('Location permission already granted:', hasPermission);
+        
+        if (hasPermission) {
+          return true;
+        }
+        
+        // If not granted, request it
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
           {
@@ -17,9 +29,11 @@ export class LocationService {
             buttonPositive: 'OK',
           }
         );
+        
+        console.log('Permission request result:', granted);
         return granted === PermissionsAndroid.RESULTS.GRANTED;
       } catch (err) {
-        console.warn(err);
+        console.warn('Permission error:', err);
         return false;
       }
     } else {
@@ -33,35 +47,48 @@ export class LocationService {
     const hasPermission = await this.requestLocationPermission();
     
     if (!hasPermission) {
-      console.log('Location permission denied, using fallback location');
-      // Return home location as fallback
-      return {
-        latitude: 31.445083,
-        longitude: 34.673111,
-      };
+      console.log('Location permission denied');
+      throw new Error('Location permission denied');
     }
 
+    // Try high accuracy first (GPS), then fallback to network location
+    try {
+      console.log('Trying high accuracy GPS location...');
+      return await this.getLocationWithOptions({
+        enableHighAccuracy: true,
+        timeout: 20000, // 20 seconds for GPS
+        maximumAge: 60000, // 1 minute cache
+      });
+    } catch (error) {
+      console.log('GPS failed, trying network location...', error.message);
+      
+      try {
+        return await this.getLocationWithOptions({
+          enableHighAccuracy: false, // Use network/WiFi location
+          timeout: 10000, // 10 seconds for network
+          maximumAge: 300000, // 5 minute cache for network location
+        });
+      } catch (networkError) {
+        console.error('Both GPS and network location failed');
+        throw new Error(`Failed to get location: ${networkError.message}`);
+      }
+    }
+  }
+
+  private getLocationWithOptions(options: any): Promise<Location> {
     return new Promise((resolve, reject) => {
       Geolocation.getCurrentPosition(
         (position) => {
+          console.log('Location obtained:', position.coords.latitude, position.coords.longitude, 'accuracy:', position.coords.accuracy);
           resolve({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           });
         },
         (error) => {
-          console.error('Error getting location:', error);
-          // Return home location as fallback (Klachim 249)
-          resolve({
-            latitude: 31.445083,
-            longitude: 34.673111,
-          });
+          reject(new Error(`${error.message}`));
         },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 60000, // Cache for 1 minute
-        }
+        options
       );
     });
   }

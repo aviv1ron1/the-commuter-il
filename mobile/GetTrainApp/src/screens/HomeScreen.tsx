@@ -11,17 +11,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LocationInfo, Location, Destination } from '../types';
 import { apiService } from '../services/ApiService';
 import { locationService } from '../services/LocationService';
+import { HOME, TLV_OFFICE, HAIFA_OFFICE, calculateDistance } from '../services/Locations';
 
 interface Props {
-  onSelectDestination: (destination: Destination) => void;
-  onGoHome: () => void;
+  onLocationSelected: (location: string) => void;
 }
 
-export const HomeScreen: React.FC<Props> = ({ onSelectDestination, onGoHome }) => {
+export const HomeScreen: React.FC<Props> = ({ onLocationSelected }) => {
   const insets = useSafeAreaInsets();
   const [locationInfo, setLocationInfo] = useState<LocationInfo | null>(null);
   const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [permissionStatus, setPermissionStatus] = useState<string>('checking');
+  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+  const [autoSelected, setAutoSelected] = useState<boolean>(false);
 
   useEffect(() => {
     detectCurrentLocation();
@@ -29,91 +31,127 @@ export const HomeScreen: React.FC<Props> = ({ onSelectDestination, onGoHome }) =
 
   const detectCurrentLocation = async () => {
     try {
-      setLoading(true);
+      setPermissionStatus('checking');
+      
       const location = await locationService.getCurrentLocation();
       setCurrentLocation(location);
+      setPermissionStatus('granted');
       
       const info = await apiService.detectLocation(location);
       setLocationInfo(info);
+      
+      // Auto-select location if we detect one and user hasn't manually selected yet
+      if (!selectedLocation) {
+        let detectedLocation = null;
+        if (info.location === 'home') {
+          detectedLocation = 'home';
+        } else if (info.location === 'tlv_office') {
+          detectedLocation = 'tel_aviv';
+        } else if (info.location === 'haifa_office') {
+          detectedLocation = 'haifa';
+        }
+        
+        if (detectedLocation) {
+          setSelectedLocation(detectedLocation);
+          setAutoSelected(true);
+          // Auto-proceed to next screen
+          onLocationSelected(detectedLocation);
+        }
+      }
     } catch (error) {
       console.error('Error detecting location:', error);
-      Alert.alert('Location Error', 'Could not detect your location. Using default settings.');
-      // Set default to show destinations
-      setLocationInfo({
-        location: 'unknown',
-        show_destinations: true,
-      });
-    } finally {
-      setLoading(false);
+      setPermissionStatus(`error: ${error.message}`);
     }
   };
 
-  const handleDestinationSelect = (destination: Destination) => {
-    onSelectDestination(destination);
+  const handleLocationSelect = (location: string) => {
+    setSelectedLocation(location);
+    setAutoSelected(false); // User manually selected
+    
+    // Proceed to next screen
+    onLocationSelected(location);
   };
-
-  const handleGoHome = () => {
-    onGoHome();
-  };
-
-  if (loading) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Detecting your location...</Text>
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Text style={styles.title}>GetTrain</Text>
-        <Text style={styles.subtitle}>
-          {locationInfo?.location === 'home' && 'You are at home'}
-          {locationInfo?.location === 'tlv_office' && 'You are at TLV office'}
-          {locationInfo?.location === 'haifa_office' && 'You are at Haifa office'}
-          {locationInfo?.location === 'unknown' && 'Choose your destination'}
-        </Text>
+        <Text style={styles.subtitle}>Where are you right now?</Text>
+        {autoSelected && <Text style={styles.autoSelectedText}>📍 Auto-detected</Text>}
+        
+        {/* Debug Info */}
+        <View style={styles.debugContainer}>
+          <Text style={styles.debugText}>Permission: {permissionStatus}</Text>
+          {currentLocation && (
+            <>
+              <Text style={styles.debugText}>
+                GPS: {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
+              </Text>
+              <Text style={styles.debugText}>
+                Home: {calculateDistance([currentLocation.latitude, currentLocation.longitude], HOME.coordinates).toFixed(2)}km
+              </Text>
+              <Text style={styles.debugText}>
+                TLV: {calculateDistance([currentLocation.latitude, currentLocation.longitude], TLV_OFFICE.coordinates).toFixed(2)}km
+              </Text>
+              <Text style={styles.debugText}>
+                Haifa: {calculateDistance([currentLocation.latitude, currentLocation.longitude], HAIFA_OFFICE.coordinates).toFixed(2)}km
+              </Text>
+              <Text style={styles.debugText}>Threshold: 0.5km</Text>
+            </>
+          )}
+        </View>
       </View>
 
-      <View style={styles.buttonContainer}>
-        {locationInfo?.show_destinations ? (
-          <>
-            <TouchableOpacity
-              style={styles.destinationButton}
-              onPress={() => handleDestinationSelect('TLV')}
-            >
-              <Text style={styles.buttonText}>TLV Office</Text>
-              <Text style={styles.buttonSubtext}>Tel Aviv - Givatayim</Text>
-            </TouchableOpacity>
+      {/* Location Selection */}
+      <View style={styles.locationContainer}>
+        <TouchableOpacity
+          style={[
+            styles.locationButton,
+            selectedLocation === 'home' && styles.locationButtonSelected
+          ]}
+          onPress={() => handleLocationSelect('home')}
+        >
+          <Text style={[
+            styles.locationButtonText,
+            selectedLocation === 'home' && styles.locationButtonTextSelected
+          ]}>🏠 Home</Text>
+          <Text style={styles.locationButtonSubtext}>Klachim 249</Text>
+        </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.destinationButton}
-              onPress={() => handleDestinationSelect('Haifa')}
-            >
-              <Text style={styles.buttonText}>Haifa Office</Text>
-              <Text style={styles.buttonSubtext}>IBM R&D Labs</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <TouchableOpacity
-            style={styles.homeButton}
-            onPress={handleGoHome}
-          >
-            <Text style={styles.buttonText}>Go Home</Text>
-            <Text style={styles.buttonSubtext}>Back to Klachim 249</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[
+            styles.locationButton,
+            selectedLocation === 'tel_aviv' && styles.locationButtonSelected
+          ]}
+          onPress={() => handleLocationSelect('tel_aviv')}
+        >
+          <Text style={[
+            styles.locationButtonText,
+            selectedLocation === 'tel_aviv' && styles.locationButtonTextSelected
+          ]}>🏢 Tel Aviv</Text>
+          <Text style={styles.locationButtonSubtext}>Givatayim Office</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.locationButton,
+            selectedLocation === 'haifa' && styles.locationButtonSelected
+          ]}
+          onPress={() => handleLocationSelect('haifa')}
+        >
+          <Text style={[
+            styles.locationButtonText,
+            selectedLocation === 'haifa' && styles.locationButtonTextSelected
+          ]}>🏢 Haifa</Text>
+          <Text style={styles.locationButtonSubtext}>IBM R&D Labs</Text>
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity
         style={styles.refreshButton}
         onPress={detectCurrentLocation}
       >
-        <Text style={styles.refreshText}>Refresh Location</Text>
+        <Text style={styles.refreshText}>🔄 Refresh GPS</Text>
       </TouchableOpacity>
     </View>
   );
@@ -124,16 +162,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
     padding: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
   },
   header: {
     alignItems: 'center',
@@ -149,43 +177,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-  buttonContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 20,
-  },
-  destinationButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  homeButton: {
-    backgroundColor: '#34C759',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  buttonSubtext: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 14,
-  },
   refreshButton: {
     marginTop: 20,
     padding: 12,
@@ -194,5 +185,54 @@ const styles = StyleSheet.create({
   refreshText: {
     color: '#007AFF',
     fontSize: 16,
+  },
+  debugContainer: {
+    marginTop: 10,
+    padding: 8,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  debugText: {
+    fontSize: 11,
+    color: '#666',
+    fontFamily: 'monospace',
+  },
+  autoSelectedText: {
+    fontSize: 14,
+    color: '#34C759',
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  locationContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 16,
+  },
+  locationButton: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#e9ecef',
+  },
+  locationButtonSelected: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  locationButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  locationButtonTextSelected: {
+    color: 'white',
+  },
+  locationButtonSubtext: {
+    fontSize: 14,
+    color: '#666',
   },
 });
