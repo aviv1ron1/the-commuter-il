@@ -136,7 +136,7 @@ export class JourneyPlanner {
       // Latest leave time first (so you can leave as late as possible)
       allOptions.sort((a, b) => b.leave_time.getTime() - a.leave_time.getTime());
     }
-    return allOptions.slice(0, 5); // Return only next 5 trains
+    return allOptions;
   }
 
   async planJourneyToHome(
@@ -241,7 +241,7 @@ export class JourneyPlanner {
     }
     
     console.log(`Filtered ${allRoutes.length} routes down to ${filteredRoutes.length} routes`);
-    return filteredRoutes.slice(0, 10); // Limit results
+    return filteredRoutes;
   }
 
   private createJourneyOptionFromHome(

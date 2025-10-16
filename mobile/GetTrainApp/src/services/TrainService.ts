@@ -101,7 +101,7 @@ export class TrainService {
       }
       
       console.log(`Successfully parsed ${routes.length} out of ${routeList.length} routes`);
-      return routes.slice(0, 10); // Limit to 10 results
+      return routes;
       
     } catch (error) {
       console.error('Error searching routes:', error);
