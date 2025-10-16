@@ -288,8 +288,9 @@ export class JourneyPlanner {
     officeToStationMinutes: number
   ): JourneyOption | null {
     try {
-      // Calculate when to leave office
-      const leaveTime = new Date(route.departure_time.getTime() - officeToStationMinutes * 60000);
+      // Calculate when to leave office (add 10 min buffer for return trips)
+      const bufferMinutes = 10;
+      const leaveTime = new Date(route.departure_time.getTime() - (officeToStationMinutes + bufferMinutes) * 60000);
       
       // Calculate final arrival (train arrival + drive home from station)
       const finalArrival = new Date(
