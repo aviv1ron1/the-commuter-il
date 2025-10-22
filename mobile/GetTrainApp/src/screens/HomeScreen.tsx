@@ -67,7 +67,7 @@ export const HomeScreen: React.FC<Props> = ({ onLocationSelected }) => {
   const handleLocationSelect = (location: string) => {
     setSelectedLocation(location);
     setAutoSelected(false); // User manually selected
-    
+
     // Proceed to next screen
     onLocationSelected(location);
   };

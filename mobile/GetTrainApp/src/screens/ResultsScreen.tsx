@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { JourneyResponse, JourneyOption, Destination, Timing, Station } from '../types';
 import { apiService } from '../services/ApiService';
 import { SortBy } from '../services/JourneyPlanner';
+import { notificationService } from '../services/NotificationService';
 
 interface Props {
   destination?: Destination;
@@ -41,6 +42,7 @@ export const ResultsScreen: React.FC<Props> = ({
   const [sortBy, setSortBy] = useState<SortBy>('arrival_time');
   const [viewMode, setViewMode] = useState<'list' | 'chart'>('list');
   const [expandedChartRow, setExpandedChartRow] = useState<number | null>(null);
+  const [reminderSetFor, setReminderSetFor] = useState<number | null>(null);
   const listScrollViewRef = useRef<ScrollView>(null);
   const cardPositions = useRef<number[]>([]);
 
@@ -114,6 +116,44 @@ export const ResultsScreen: React.FC<Props> = ({
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  };
+
+  const handleSetReminder = async (option: JourneyOption, index: number) => {
+    try {
+      // If this train already has a reminder, cancel it
+      if (reminderSetFor === index) {
+        await notificationService.cancelReminder();
+        setReminderSetFor(null);
+        console.log('Reminder cancelled');
+        return;
+      }
+
+      // Cancel any existing reminder
+      if (reminderSetFor !== null) {
+        await notificationService.cancelReminder();
+      }
+
+      // Schedule new reminder
+      const notificationId = await notificationService.scheduleTrainReminder({
+        trainNumber: option.train_number || 'Unknown',
+        departureStation: option.departure_station,
+        departureTime: new Date(option.train_departure),
+        leaveTime: new Date(option.leave_time),
+      });
+
+      if (notificationId) {
+        setReminderSetFor(index);
+
+        // Debug: Check all scheduled notifications
+        await notificationService.getAllScheduledNotifications();
+
+        console.log('Reminder set successfully for train', option.train_number);
+      } else {
+        console.error('Failed to set reminder - no notification ID returned');
+      }
+    } catch (error) {
+      console.error('Error setting reminder:', error);
+    }
   };
 
   const getFilteredOptions = (): JourneyOption[] => {
@@ -231,7 +271,7 @@ export const ResultsScreen: React.FC<Props> = ({
         <Text style={styles.breakdownTitle}>Time breakdown:</Text>
         <Text style={styles.breakdownText}>
           {isReturnTrip ? 'Walk to station' : 'Drive + parking'}: {formatDuration(
-            isReturnTrip ? option.final_transport_minutes : 
+            isReturnTrip ? option.final_transport_minutes :
             option.drive_time_minutes + 15
           )}
         </Text>
@@ -244,6 +284,26 @@ export const ResultsScreen: React.FC<Props> = ({
           )}
         </Text>
       </View>
+
+      <TouchableOpacity
+        style={[
+          styles.reminderButton,
+          reminderSetFor === index && styles.reminderButtonActive
+        ]}
+        onPress={() => handleSetReminder(option, index)}
+      >
+        <Text style={[
+          styles.reminderButtonText,
+          reminderSetFor === index && styles.reminderButtonTextActive
+        ]}>
+          {reminderSetFor === index ? '✓ Reminder Set' : '🔔 Set Reminder'}
+        </Text>
+        {reminderSetFor === index && (
+          <Text style={styles.reminderTimeText}>
+            Alert 15 min before leaving ({formatTime(new Date(new Date(option.leave_time).getTime() - 15 * 60 * 1000).toISOString())})
+          </Text>
+        )}
+      </TouchableOpacity>
     </View>
     );
   };
@@ -906,5 +966,32 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
+  },
+  reminderButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#007AFF',
+  },
+  reminderButtonActive: {
+    backgroundColor: '#34C759',
+    borderColor: '#34C759',
+  },
+  reminderButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  reminderButtonTextActive: {
+    color: 'white',
+  },
+  reminderTimeText: {
+    color: 'white',
+    fontSize: 12,
+    marginTop: 4,
+    opacity: 0.9,
   },
 });

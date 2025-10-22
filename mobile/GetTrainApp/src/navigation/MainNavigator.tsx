@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { HomeScreen } from '../screens/HomeScreen';
 import { DestinationScreen } from '../screens/DestinationScreen';
 import { TimingScreen } from '../screens/TimingScreen';
 import { ResultsScreen } from '../screens/ResultsScreen';
+import ActiveReminderScreen from '../screens/ActiveReminderScreen';
 import { Destination, Timing, Station } from '../types';
+import { notificationService } from '../services/NotificationService';
 
-type Screen = 'location' | 'destination' | 'timing' | 'results';
+type Screen = 'location' | 'destination' | 'timing' | 'results' | 'active-reminder';
 
 interface NavigationState {
   currentScreen: Screen;
@@ -18,12 +20,73 @@ interface NavigationState {
   fromLocation?: Destination;
   parkedStation?: Station;
   rememberedStation?: Station;
+  activeReminder?: {
+    trainNumber: string;
+    departureStation: string;
+    departureTime: Date;
+    leaveTime: Date;
+    notificationId: string;
+    notificationTime: Date;
+  } | null;
 }
 
 export const MainNavigator: React.FC = () => {
   const [navState, setNavState] = useState<NavigationState>({
     currentScreen: 'location',
   });
+
+  // Check for active reminder on mount or when notification is pressed
+  useEffect(() => {
+    const checkActiveReminder = async () => {
+      console.log('[GetTrain] Checking for active reminder or notification press...');
+
+      // Check if app was opened by tapping notification (when app was killed)
+      const initialNotification = await notificationService.checkInitialNotification();
+      console.log('[GetTrain] Initial notification check:', initialNotification);
+
+      // Check if app was opened by tapping notification (flag-based)
+      const notificationPressed = await notificationService.wasNotificationPressed();
+      console.log('[GetTrain] Notification pressed flag:', notificationPressed);
+
+      const reminder = await notificationService.getActiveReminder();
+      console.log('[GetTrain] Active reminder:', reminder ? 'Found' : 'None');
+
+      if (reminder && (initialNotification || notificationPressed)) {
+        console.log('[GetTrain] >>> Navigating to reminder screen (notification tapped)');
+        setNavState({
+          currentScreen: 'active-reminder',
+          activeReminder: reminder,
+        });
+      } else if (reminder) {
+        console.log('[GetTrain] >>> Navigating to reminder screen (app opened normally)');
+        setNavState({
+          currentScreen: 'active-reminder',
+          activeReminder: reminder,
+        });
+      } else if (notificationPressed || initialNotification) {
+        console.log('[GetTrain] Notification was pressed but no active reminder found');
+      }
+    };
+
+    checkActiveReminder();
+
+    // Also listen for when app comes to foreground
+    const interval = setInterval(async () => {
+      const notificationPressed = await notificationService.wasNotificationPressed();
+      if (notificationPressed) {
+        const reminder = await notificationService.getActiveReminder();
+        if (reminder) {
+          console.log('[GetTrain] >>> Notification pressed, showing reminder screen');
+          setNavState({
+            currentScreen: 'active-reminder',
+            activeReminder: reminder,
+          });
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const navigateToDestination = (location: string) => {
     // Get remembered station for return trips
@@ -109,8 +172,33 @@ export const MainNavigator: React.FC = () => {
     setNavState({ currentScreen: 'location' });
   };
 
+  const handleReminderCancel = () => {
+    setNavState({ currentScreen: 'location' });
+  };
+
+  const handleReminderContinue = () => {
+    setNavState({ currentScreen: 'location' });
+  };
+
   const renderCurrentScreen = () => {
     switch (navState.currentScreen) {
+      case 'active-reminder':
+        if (!navState.activeReminder) {
+          // Fallback to location screen if no reminder
+          return (
+            <HomeScreen
+              onLocationSelected={navigateToDestination}
+            />
+          );
+        }
+        return (
+          <ActiveReminderScreen
+            reminder={navState.activeReminder}
+            onCancel={handleReminderCancel}
+            onContinue={handleReminderContinue}
+          />
+        );
+
       case 'location':
         return (
           <HomeScreen
