@@ -248,8 +248,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   countdownSubtext: {
-    fontSize: 14,
+    fontSize: 18,
     color: '#999',
+    fontWeight: '500',
   },
   divider: {
     height: 1,
@@ -272,11 +273,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   detailLabel: {
-    fontSize: 15,
+    fontSize: 16,
     color: '#666',
   },
   detailValue: {
-    fontSize: 15,
+    fontSize: 22,
     fontWeight: '600',
     color: '#333',
   },
