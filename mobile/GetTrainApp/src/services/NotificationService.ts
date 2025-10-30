@@ -136,19 +136,17 @@ class NotificationService {
         await this.cancelReminder();
       }
 
-      // TODO: TESTING ONLY - Remove this after testing
-      // Calculate notification time (1 minute from now for testing)
-      const notificationTime = new Date(Date.now() + 1 * 60 * 1000);
+      // Calculate notification time (15 minutes before leave time)
+      const notificationTime = new Date(reminder.leaveTime.getTime() - 15 * 60 * 1000);
       console.log('📅 Notification scheduled for:', notificationTime);
       console.log('📅 Current time:', new Date());
       console.log('📅 Time until notification (ms):', notificationTime.getTime() - Date.now());
 
-      // PRODUCTION CODE (uncomment after testing):
-      // const notificationTime = new Date(reminder.leaveTime.getTime() - 15 * 60 * 1000);
-      // if (notificationTime <= new Date()) {
-      //   console.log('Notification time is in the past, not scheduling');
-      //   return null;
-      // }
+      // Check if notification time is in the past
+      if (notificationTime <= new Date()) {
+        console.log('⚠️ Notification time is in the past, not scheduling');
+        return null;
+      }
 
       const trigger: TimestampTrigger = {
         type: TriggerType.TIMESTAMP,
