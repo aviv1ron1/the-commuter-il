@@ -113,7 +113,8 @@ class ApiService {
   ): Promise<JourneyResponse> {
     try {
       // Convert station name to match our internal naming
-      let stationName = parkedStation;
+      // Use a flexible type for stationName because we may need to map to an internal identifier
+      let stationName: any = parkedStation;
       if (parkedStation === 'Lehavim') {
         stationName = 'Lehavim-Rahat';
       }
@@ -122,9 +123,10 @@ class ApiService {
 
       if (timing === 'now') {
         // Plan forward from current time
+        // Cast stationName to any to satisfy the planner's expected type
         journeyOptions = await this.journeyPlanner.planJourneyToHome(
           fromLocation,
-          stationName,
+          stationName as any,
           new Date(),
           3,
           sortBy

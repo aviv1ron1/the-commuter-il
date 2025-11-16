@@ -24,6 +24,7 @@ export const HomeScreen: React.FC<Props> = ({ onLocationSelected }) => {
   const [permissionStatus, setPermissionStatus] = useState<string>('checking');
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [autoSelected, setAutoSelected] = useState<boolean>(false);
+  const [manualSelected, setManualSelected] = useState<boolean>(false);
 
   useEffect(() => {
     detectCurrentLocation();
@@ -41,7 +42,7 @@ export const HomeScreen: React.FC<Props> = ({ onLocationSelected }) => {
       setLocationInfo(info);
       
       // Auto-select location if we detect one and user hasn't manually selected yet
-      if (!selectedLocation) {
+      if (!selectedLocation && !manualSelected) {
         let detectedLocation = null;
         if (info.location === 'home') {
           detectedLocation = 'home';
@@ -60,13 +61,14 @@ export const HomeScreen: React.FC<Props> = ({ onLocationSelected }) => {
       }
     } catch (error) {
       console.error('Error detecting location:', error);
-      setPermissionStatus(`error: ${error.message}`);
+      setPermissionStatus(`error: ${(error as any).message}`);
     }
   };
 
   const handleLocationSelect = (location: string) => {
     setSelectedLocation(location);
     setAutoSelected(false); // User manually selected
+    setManualSelected(true);
 
     // Proceed to next screen
     onLocationSelected(location);
