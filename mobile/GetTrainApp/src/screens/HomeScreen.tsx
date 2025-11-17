@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ export const HomeScreen: React.FC<Props> = ({ onLocationSelected }) => {
   const [permissionStatus, setPermissionStatus] = useState<string>('checking');
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [autoSelected, setAutoSelected] = useState<boolean>(false);
+  const manualSelectionMade = useRef<boolean>(false);
 
   useEffect(() => {
     detectCurrentLocation();
@@ -39,9 +40,9 @@ export const HomeScreen: React.FC<Props> = ({ onLocationSelected }) => {
       
       const info = await apiService.detectLocation(location);
       setLocationInfo(info);
-      
+
       // Auto-select location if we detect one and user hasn't manually selected yet
-      if (!selectedLocation) {
+      if (!selectedLocation && !manualSelectionMade.current) {
         let detectedLocation = null;
         if (info.location === 'home') {
           detectedLocation = 'home';
@@ -50,7 +51,7 @@ export const HomeScreen: React.FC<Props> = ({ onLocationSelected }) => {
         } else if (info.location === 'haifa_office') {
           detectedLocation = 'haifa';
         }
-        
+
         if (detectedLocation) {
           setSelectedLocation(detectedLocation);
           setAutoSelected(true);
@@ -67,6 +68,7 @@ export const HomeScreen: React.FC<Props> = ({ onLocationSelected }) => {
   const handleLocationSelect = (location: string) => {
     setSelectedLocation(location);
     setAutoSelected(false); // User manually selected
+    manualSelectionMade.current = true; // Prevent GPS from interfering
 
     // Proceed to next screen
     onLocationSelected(location);
@@ -149,7 +151,13 @@ export const HomeScreen: React.FC<Props> = ({ onLocationSelected }) => {
 
       <TouchableOpacity
         style={styles.refreshButton}
-        onPress={detectCurrentLocation}
+        onPress={() => {
+          // Allow GPS auto-detection when user explicitly refreshes
+          manualSelectionMade.current = false;
+          setSelectedLocation(null);
+          setAutoSelected(false);
+          detectCurrentLocation();
+        }}
       >
         <Text style={styles.refreshText}>🔄 Refresh GPS</Text>
       </TouchableOpacity>
