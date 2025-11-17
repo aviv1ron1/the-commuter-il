@@ -23,6 +23,7 @@ interface Props {
   fromLocation?: Destination;
   parkedStation?: Station;
   onBack: () => void;
+  onRememberStation?: (station: Station) => void;
 }
 
 export const ResultsScreen: React.FC<Props> = ({
@@ -33,6 +34,7 @@ export const ResultsScreen: React.FC<Props> = ({
   fromLocation,
   parkedStation,
   onBack,
+  onRememberStation,
 }) => {
   const insets = useSafeAreaInsets();
   const [journeyData, setJourneyData] = useState<JourneyResponse | null>(null);
@@ -143,6 +145,13 @@ export const ResultsScreen: React.FC<Props> = ({
 
       if (notificationId) {
         setReminderSetFor(index);
+
+        // Remember station for forward trips (home to office)
+        if (!isReturnTrip && onRememberStation) {
+          const stationName = option.departure_station === 'Lehavim-Rahat' ? 'Lehavim' : option.departure_station;
+          onRememberStation(stationName as Station);
+          console.log('Remembered station:', stationName);
+        }
 
         // Debug: Check all scheduled notifications
         await notificationService.getAllScheduledNotifications();

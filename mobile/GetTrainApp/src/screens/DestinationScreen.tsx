@@ -12,41 +12,37 @@ import { TRAIN_STATIONS } from '../services/Locations';
 interface Props {
   currentLocation: string; // 'home', 'tel_aviv', 'haifa'
   onSelectDestination: (destination: Destination) => void;
-  onGoHome: () => void;
+  onGoHome: (station: Station) => void;
   onBack: () => void;
   rememberedStation?: Station; // For return trips
 }
 
-export const DestinationScreen: React.FC<Props> = ({ 
-  currentLocation, 
-  onSelectDestination, 
-  onGoHome, 
+export const DestinationScreen: React.FC<Props> = ({
+  currentLocation,
+  onSelectDestination,
+  onGoHome,
   onBack,
-  rememberedStation 
+  rememberedStation
 }) => {
   const insets = useSafeAreaInsets();
   const [selectedDestination, setSelectedDestination] = useState<string | null>(null);
 
   useEffect(() => {
-    // Auto-select remembered station for return trips
+    // Pre-select remembered station for return trips (but don't auto-proceed)
     if (currentLocation !== 'home' && rememberedStation) {
       setSelectedDestination(rememberedStation);
-      // Auto-proceed after a brief moment to show the selection
-      setTimeout(() => {
-        onGoHome();
-      }, 1000);
     }
-  }, [currentLocation, rememberedStation, onGoHome]);
+  }, [currentLocation, rememberedStation]);
 
   const handleDestinationSelect = (destination: string) => {
     setSelectedDestination(destination);
-    
+
     if (currentLocation === 'home') {
       // Going to office
       onSelectDestination(destination as Destination);
     } else {
-      // Going home from office
-      onGoHome();
+      // Going home from office - pass the selected station
+      onGoHome(destination as Station);
     }
   };
 
@@ -108,7 +104,7 @@ export const DestinationScreen: React.FC<Props> = ({
             </Text>
             <Text style={styles.buttonSubtext}>
               {station.drive_time_minutes} min drive
-              {isRemembered && ' • Remembered from today'}
+              {isRemembered && ' • From this morning'}
             </Text>
           </TouchableOpacity>
         );
@@ -149,7 +145,7 @@ export const DestinationScreen: React.FC<Props> = ({
         
         {rememberedStation && currentLocation !== 'home' && (
           <Text style={styles.rememberedText}>
-            ⭐ Auto-selecting {rememberedStation} (remembered from today)
+            ⭐ {rememberedStation} (from this morning - tap to change)
           </Text>
         )}
       </View>

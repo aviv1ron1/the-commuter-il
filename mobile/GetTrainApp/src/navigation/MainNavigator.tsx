@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, BackHandler } from 'react-native';
 import { HomeScreen } from '../screens/HomeScreen';
 import { DestinationScreen } from '../screens/DestinationScreen';
 import { TimingScreen } from '../screens/TimingScreen';
@@ -88,6 +88,27 @@ export const MainNavigator: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Handle Android back button
+  useEffect(() => {
+    const backAction = () => {
+      // If on home screen, allow default behavior (exit app)
+      if (navState.currentScreen === 'location') {
+        return false;
+      }
+
+      // Otherwise, navigate back in the app
+      navigateBack();
+      return true; // Prevent default behavior (exiting app)
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [navState.currentScreen]);
+
   const navigateToDestination = (location: string) => {
     // Get remembered station for return trips
     const rememberedStation = getRememberedStation();
@@ -113,22 +134,21 @@ export const MainNavigator: React.FC = () => {
     });
   };
 
-  const navigateToReturnTiming = () => {
+  const navigateToReturnTiming = (selectedStation: Station) => {
     const fromLocation = navState.currentLocation === 'tel_aviv' ? 'TLV' : 'Haifa';
-    const parkedStation = navState.rememberedStation || 'Netivot';
-    
+
     console.log('=== RETURN TRIP DEBUG ===');
     console.log('From location:', fromLocation);
-    console.log('Parked station:', parkedStation);
+    console.log('Selected station:', selectedStation);
     console.log('Current location:', navState.currentLocation);
     console.log('Is return trip: true');
-    
+
     setNavState({
       ...navState,
       currentScreen: 'timing',
       isReturnTrip: true,
       fromLocation: fromLocation as Destination,
-      parkedStation: parkedStation as Station,
+      parkedStation: selectedStation,
     });
   };
 
@@ -165,6 +185,8 @@ export const MainNavigator: React.FC = () => {
         ...navState,
         currentScreen: 'timing',
       });
+    } else if (navState.currentScreen === 'active-reminder') {
+      setNavState({ currentScreen: 'location' });
     }
   };
 
@@ -237,6 +259,7 @@ export const MainNavigator: React.FC = () => {
             fromLocation={navState.fromLocation}
             parkedStation={navState.parkedStation}
             onBack={navigateBack}
+            onRememberStation={rememberStation}
           />
         );
 

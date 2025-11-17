@@ -72,11 +72,11 @@ class ApiService {
       let journeyOptions: JourneyOption[];
 
       if (timing === 'now') {
-        // Plan forward from current time
+        // Plan forward from current time (next 3 hours of trains)
         journeyOptions = await this.journeyPlanner.planJourneyFromHomeForward(
           destination,
           new Date(),
-          12,
+          3,
           sortBy
         );
       } else {
